@@ -28,13 +28,13 @@ function genChangedFiles(repo) {
             }
             if(itemsProcessed === statuses.length){
                 console.log('calling lint files');
-                lintFilesSimple(files);
+                return lintFilesSimple(files, repo);
             }
         });
     });
 }
 
-function lintFilesSimple (fileArray) {
+function lintFilesSimple (fileArray, repo) {
     console.log('lintFilesSimple');
     var CLIEngine = require("eslint").CLIEngine;
 
@@ -44,15 +44,53 @@ function lintFilesSimple (fileArray) {
     console.log('CLI created, files = ' + fileArray);
     // lint myfile.js and all files in lib/
     var report = cli.executeOnFiles(fileArray);
-
+    var filesProcessed = 0;
     report.results.forEach(function (fileResponse) {
-        console.log('In for each, filepath = ' + fileResponse.filePath + typeof(fileResponse.output));
+        console.log('In for each, filepath = ' + fileResponse.filePath);
         fs.writeFile(fileResponse.filePath, fileResponse.output,function (err) {
             console.log('In callback for write file');
             if (err) {
                 console.log('Error ' + fileResponse.filepath + ': ' + err)
             }
             console.log('File write complete');
+            filesProcessed++;
+            if(filesProcessed === report.results.length) {
+                return guidedCommit(fileArray, repo);
+            }
         });
+    });
+}
+
+function guidedCommit (files, repo) {
+    repo.refreshIndex()
+        .then(function (index) {
+            console.log('Index retrieved, file count = ' + files.length);
+            var filesAdded = 0;
+            files.forEach(function (file) {
+                console.log('Adding ' + file.replace(directory, '') + ' to directory');
+                index.addByPath(file.replace(directory + '/','')).then(function (result) {
+                    console.log('Adding to index');
+                    filesAdded++;
+                    if(filesAdded === files.length) {
+                        console.log('All Files added');
+                        var oid;
+                        var d = new Date();
+                        index.write().then(function(){
+                            return index.writeTree();
+                        }).then(function (oidResult) {
+                            oid = oidResult;
+                            return nodegit.Reference.nameToId(repo, "HEAD");
+                        }).then(function (head) {
+                            return repo.getCommit(head);
+                        }).then(function (parent) {
+                            var author = nodegit.Signature.create('Ben Bahrman', 'benbahrman@gmail.com', d.getDate(), 8);
+                            var committer = author;
+                            return repo.createCommit('HEAD', author, committer,  'Test automated commites', oid, [parent]);
+                        }).done(function (commitId) {
+                            console.log('New commit: ' + commitId);
+                        });
+                    }
+                })
+            });
     });
 }
