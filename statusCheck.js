@@ -9,11 +9,8 @@ var repositoryObj;
 nodegit.Repository.open(directory).then(function (repo) {
     repositoryObj = repo;
     genChangedFiles(repo);
-    nodegit.Reference.nameToId(repo, "HEAD").then(function (headOID) {
-        console.log('head oid = ' + headOID);
-        repo.getCommit(headOID).then(function (headCommit) {
-            parentCommit = headCommit;
-        });
+    repo.getHeadCommit().then(function (headCommit) {
+        parentCommit = headCommit;
     });
 });
 signature = nodegit.Signature.now('Ben Bahrman', 'benbahrman@gmail.com');
