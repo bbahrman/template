@@ -1,9 +1,11 @@
 var nodegit = require('nodegit');
 var fs = require('fs');
 var directory = '/Users/benbahrman/Code_Review';
+var signature;
 // This code shows working directory changes similar to git status
 
 nodegit.Repository.open(directory).then(genChangedFiles);
+signature = nodegit.Signature.now('Ben Bahrman', 'benbahrman@gmail.com');
 
 function isChanged (fileObj) {
     if(fileObj.isNew() || fileObj.isModified() || fileObj.isTypechange() || fileObj.isRenamed()){
@@ -46,21 +48,30 @@ function lintFilesSimple (fileArray, repo) {
     var report = cli.executeOnFiles(fileArray);
     var filesProcessed = 0;
     report.results.forEach(function (fileResponse) {
-        console.log('In for each, filepath = ' + fileResponse.filePath);
-        fs.writeFile(fileResponse.filePath, fileResponse.output,function (err) {
-            console.log('In callback for write file');
-            if (err) {
-                console.log('Error ' + fileResponse.filepath + ': ' + err)
-            }
-            console.log('File write complete');
-            filesProcessed++;
-            if(filesProcessed === report.results.length) {
-                return guidedCommit(fileArray, repo);
-            }
-        });
+        if(!isEmptyOrNull(fileResponse.output)) {
+            fs.writeFile(fileResponse.filePath, fileResponse.output, function (err) {
+                console.log('In callback for write file');
+                if (err) {
+                    console.log('Error ' + fileResponse.filepath + ': ' + err)
+                }
+                console.log('File write complete');
+                filesProcessed++;
+                if (filesProcessed === report.results.length) {
+                    return guidedCommit(fileArray, repo);
+                }
+            });
+        } else {
+            return guidedCommit(fileArray, repo);
+        }
     });
 }
 
+function isEmptyOrNull (testVar) {
+    if (!testVar || testVar == undefined || testVar === 'undefined' || testVar === '' || testVar === null) {
+        return true;
+    }
+    return false;
+}
 function guidedCommit (files, repo) {
     repo.refreshIndex()
         .then(function (index) {
@@ -74,7 +85,6 @@ function guidedCommit (files, repo) {
                     if(filesAdded === files.length) {
                         console.log('All Files added');
                         var oid;
-                        var d = new Date();
                         index.write().then(function(){
                             return index.writeTree();
                         }).then(function (oidResult) {
@@ -83,9 +93,7 @@ function guidedCommit (files, repo) {
                         }).then(function (head) {
                             return repo.getCommit(head);
                         }).then(function (parent) {
-                            var author = nodegit.Signature.create('Ben Bahrman', 'benbahrman@gmail.com', d.getDate(), 8);
-                            var committer = author;
-                            return repo.createCommit('HEAD', author, committer,  'Test automated commites', oid, [parent]);
+                            return repo.createCommit('HEAD', signature, signature,  'Test automated commits', oid, [parent]);
                         }).done(function (commitId) {
                             console.log('New commit: ' + commitId);
                         });
