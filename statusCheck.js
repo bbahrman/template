@@ -2,10 +2,22 @@ var nodegit = require('nodegit');
 var fs = require('fs');
 var directory = '/Users/benbahrman/Code_Review';
 var signature;
+var parentCommit;
+var repositoryObj;
 // This code shows working directory changes similar to git status
 
-nodegit.Repository.open(directory).then(genChangedFiles);
+nodegit.Repository.open(directory).then(function (repo) {
+    repositoryObj = repo;
+    genChangedFiles(repo);
+    nodegit.Reference.nameToId(repo, "HEAD").then(function (headOID) {
+        console.log('head oid = ' + headOID);
+        repo.getCommit(headOID).then(function (headCommit) {
+            parentCommit = headCommit;
+        });
+    });
+});
 signature = nodegit.Signature.now('Ben Bahrman', 'benbahrman@gmail.com');
+
 
 function isChanged (fileObj) {
     if(fileObj.isNew() || fileObj.isModified() || fileObj.isTypechange() || fileObj.isRenamed()){
@@ -84,16 +96,10 @@ function guidedCommit (files, repo) {
                     filesAdded++;
                     if(filesAdded === files.length) {
                         console.log('All Files added');
-                        var oid;
                         index.write().then(function(){
                             return index.writeTree();
-                        }).then(function (oidResult) {
-                            oid = oidResult;
-                            return nodegit.Reference.nameToId(repo, "HEAD");
-                        }).then(function (head) {
-                            return repo.getCommit(head);
-                        }).then(function (parent) {
-                            return repo.createCommit('HEAD', signature, signature,  'Test automated commits', oid, [parent]);
+                        }).then(function (oid) {
+                            return repo.createCommit('HEAD', signature, signature,  'Test automated commits', oid, [parentCommit]);
                         }).done(function (commitId) {
                             console.log('New commit: ' + commitId);
                         });
