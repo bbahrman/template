@@ -3,18 +3,15 @@ var fs = require('fs');
 var directory = '/Users/benbahrman/Code_Review';
 var signature;
 var parentCommit;
-var repositoryObj;
+let repositoryObject;
+var changedFiles;
 // This code shows working directory changes similar to git status
 
-nodegit.Repository.open(directory).then(function (repo) {
-    repositoryObj = repo;
-    genChangedFiles(repo);
-    repo.getHeadCommit().then(function (headCommit) {
-        parentCommit = headCommit;
-    });
-});
-signature = nodegit.Signature.now('Ben Bahrman', 'benbahrman@gmail.com');
+/*
 
+signature = nodegit.Signature.now('Ben Bahrman', 'benbahrman@gmail.com');
+*/
+commitAndLint();
 
 function isChanged (fileObj) {
     if(fileObj.isNew() || fileObj.isModified() || fileObj.isTypechange() || fileObj.isRenamed()){
@@ -25,54 +22,14 @@ function isChanged (fileObj) {
 }
 
 
-function genChangedFiles(repo) {
-    repo.getStatus().then(function(statuses) {
-        var files = [];
-        var itemsProcessed = 0;
+function getCommitId(repo) {
+    console.log('getCommitId');
 
-        statuses.forEach(function(file) {
-            if (isChanged(file)) {
-                console.log(file.path() + ' is changed');
-                files.push(directory + '/' + file.path());
-                itemsProcessed++;
-                //console.log(itemsProcessed + ' files = ' + files.join(','));
-            }
-            if(itemsProcessed === statuses.length){
-                console.log('calling lint files');
-                return lintFilesSimple(files, repo);
-            }
-        });
-    });
 }
 
 function lintFilesSimple (fileArray, repo) {
     console.log('lintFilesSimple');
-    var CLIEngine = require("eslint").CLIEngine;
 
-    var cli = new CLIEngine({
-        useEslintrc: true, fix: true
-    });
-    console.log('CLI created, files = ' + fileArray);
-    // lint myfile.js and all files in lib/
-    var report = cli.executeOnFiles(fileArray);
-    var filesProcessed = 0;
-    report.results.forEach(function (fileResponse) {
-        if(!isEmptyOrNull(fileResponse.output)) {
-            fs.writeFile(fileResponse.filePath, fileResponse.output, function (err) {
-                console.log('In callback for write file');
-                if (err) {
-                    console.log('Error ' + fileResponse.filepath + ': ' + err)
-                }
-                console.log('File write complete');
-                filesProcessed++;
-                if (filesProcessed === report.results.length) {
-                    return guidedCommit(fileArray, repo);
-                }
-            });
-        } else {
-            return guidedCommit(fileArray, repo);
-        }
-    });
 }
 
 function isEmptyOrNull (testVar) {
@@ -81,27 +38,161 @@ function isEmptyOrNull (testVar) {
     }
     return false;
 }
-function guidedCommit (files, repo) {
-    repo.refreshIndex()
-        .then(function (index) {
-            console.log('Index retrieved, file count = ' + files.length);
-            var filesAdded = 0;
-            files.forEach(function (file) {
-                console.log('Adding ' + file.replace(directory, '') + ' to directory');
-                index.addByPath(file.replace(directory + '/','')).then(function (result) {
-                    console.log('Adding to index');
-                    filesAdded++;
-                    if(filesAdded === files.length) {
-                        console.log('All Files added');
-                        index.write().then(function(){
-                            return index.writeTree();
-                        }).then(function (oid) {
-                            return repo.createCommit('HEAD', signature, signature,  'Test automated commits', oid, [parentCommit]);
-                        }).done(function (commitId) {
-                            console.log('New commit: ' + commitId);
-                        });
-                    }
-                })
-            });
+
+function getCommit (files, repo) {
+
+}
+
+function commitAndLint () {
+    Promise.all([
+    // GET REPO -> Generate commit
+    commitCreation(),
+    // generate signature for commit
+        signatureCreation()
+    // GET COMMIT MESSAGE
+    //commitMessage
+    ]).then((values) => {
+        console.log('All complete');
+        console.log('commit id = ' + values[0] + ' signature = ' + values[1]); //+ ' commit message = ' + values[2]);
+        // return repo.createCommit('HEAD', signature, signature,  'Test automated commits', oid, [parentCommit]);
+    }).catch(reason => {
+        throw reason;
     });
+
+}
+
+function testAsync(){
+    return new Promise(function (resolve, reject) {
+       resolve('test');
+    });
+}
+
+function getRepo(resolve, reject) {
+    
+}
+function commitCreation () {
+    return new Promise(function (resolve, reject) {
+        try {
+            let lintPromise;
+            let oidPromise;
+
+            // load repo
+            nodegit.Repository
+            .open(directory)
+            .then(function (repo) {
+                // set global repo object
+                repositoryObject = repo;
+                // get head commit
+                repo.getHeadCommit().then(function (headCommit) {
+                    // set global parent
+                    parentCommit = headCommit;
+                });
+
+                const filePromise = new Promise(function (resolve, reject) {
+                    try {
+                        repo.getStatus().then(function (statuses) {
+                            var files = [];
+                            var itemsProcessed = 0;
+
+                            statuses.forEach(function (file) {
+                                if (isChanged(file)) {
+                                    files.push(directory + '/' + file.path());
+                                    itemsProcessed++;
+                                }
+                                if (itemsProcessed === statuses.length) {
+                                    changedFiles = files;
+                                    resolve(files);
+                                }
+                            });
+                        });
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+
+                // generate changed file array
+                filePromise.then((fileArray) => {
+                    changedFiles = fileArray;
+                })
+                .then(() => {
+                    lintPromise = new Promise((resolve, reject) => {
+                        const CLIEngine = require("eslint").CLIEngine;
+
+                        const cli = new CLIEngine({
+                            useEslintrc: true, fix: true
+                        });
+                        // lint myfile.js and all files in lib/
+                        const report = cli.executeOnFiles(changedFiles);
+                        let filesProcessed = 0;
+                        report.results.forEach(function (fileResponse) {
+                            if (!isEmptyOrNull(fileResponse.output)) {
+                                fs.writeFile(fileResponse.filePath, fileResponse.output, function (err) {
+                                    console.log('In callback for write file');
+                                    if (err) {
+                                        console.log('Error ' + fileResponse.filepath + ': ' + err)
+                                    }
+                                    console.log('File write complete');
+                                    filesProcessed++;
+                                    if (filesProcessed === report.results.length) {
+                                        resolve(); // todo resolve with results
+                                    }
+                                });
+                            } else {
+                                resolve(); // todo resolve with results
+                            }
+                        });
+                    });
+                    // lint changed files
+                    lintPromise.then(function() {
+                        oidPromise = new Promise((resolve, reject)=> {
+                            repo.refreshIndex()
+                            .then(function (index) {
+                                var filesAdded = 0;
+                                changedFiles.forEach(function (file) {
+                                    index.addByPath(file.replace(directory + '/','')).then(function (result) {
+                                        filesAdded++;
+                                        if(filesAdded === files.length) {
+                                            index.write().then(function(){
+                                                return index.writeTree();
+                                            }).then(function (oid) {
+                                                resolve(oid);
+                                            });
+                                        }
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        } catch (err) {
+            reject(err)
+        }
+    });
+}
+
+function signatureCreation () {
+    return new Promise(function (resolve, reject) {
+        try {
+            resolve('test');
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+
+function getCommitMessage (resolve, reject) {
+    try {
+        const readline = require('readline');
+        const rl = readline.createInterface({
+            input: process.stdin, output: process.stdout
+        });
+        rl.question('Commit message: ', (answer) => {
+            rl.close();
+            resolve(answer)
+        });
+    } catch (err) {
+        reject(err)
+    }
 }
