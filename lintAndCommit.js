@@ -6,31 +6,35 @@ var parentCommit;
 var repositoryObj;
 var changedFiles;
 // This code shows working directory changes similar to git status
+let commitPromise = getCommitMessage();
 
-Promise.all([
-processFiles(),
-getCommitMessage()
-])
-.then(function (results) {
-    repositoryObj.createCommit('HEAD', signature, signature,  results[1], results[0], [parentCommit]);
+nodegit.Repository.open(directory).then(function (repo) {
+    repositoryObj = repo;
+
+    Promise.all([
+        processFiles(),
+        commitPromise
+    ])
+    .then(function (results) {
+        // commit changes, last three arguments are OID, commit message, and parent commit
+        repositoryObj.createCommit('HEAD', signature, signature,  results[1], results[0], [parentCommit]);
+    });
 });
+
 
 // Return OID for commit and set repository obj on global scale
 function processFiles(){
     return new Promise(function (resolve, reject) {
-        nodegit.Repository.open(directory).then(function (repo) {
-            repositoryObj = repo;
-            genChangedFiles(repo)
-                .then(lintFilesSimple)
-                .then(guidedCommit)
-                .then(function (oid) {
-                    resolve(oid);
-            });
-            repo.getHeadCommit().then(function (headCommit) {
-                parentCommit = headCommit;
-            });
-            signature = nodegit.Signature.default(repo);
+        genChangedFiles(repositoryObj)
+            .then(lintFilesSimple)
+            .then(guidedCommit)
+            .then(function (oid) {
+                resolve(oid);
         });
+        repositoryObj.getHeadCommit().then(function (headCommit) {
+            parentCommit = headCommit;
+        });
+        signature = nodegit.Signature.default(repositoryObj);
     });
 }
 
@@ -44,14 +48,6 @@ function createSignature () {
        }
     });
 }
-
-// Get Repo
-// Get changed files
-// Lint Changed Files
-// Commit linted files
-// create signature
-// get commit message
-// fetch remotes
 
 function isChanged (fileObj) {
     if(fileObj.isNew() || fileObj.isModified() || fileObj.isTypechange() || fileObj.isRenamed()){
