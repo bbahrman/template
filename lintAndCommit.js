@@ -7,7 +7,14 @@ var repositoryObj;
 var changedFiles;
 // This code shows working directory changes similar to git status
 
-processFiles();
+Promise.all([
+processFiles(),
+getCommitMessage()
+])
+.then(function (results) {
+    repositoryObj.createCommit('HEAD', signature, signature,  results[1], results[0], [parentCommit]);
+});
+
 // Return OID for commit and set repository obj on global scale
 function processFiles(){
     return new Promise(function (resolve, reject) {
@@ -22,10 +29,21 @@ function processFiles(){
             repo.getHeadCommit().then(function (headCommit) {
                 parentCommit = headCommit;
             });
+            signature = nodegit.Signature.default(repo);
         });
     });
 }
 
+function createSignature () {
+    return new Promise(function (resolve, reject) {
+       try {
+           if(signature){resolve (signature)}
+           else (signature.now())
+       } catch (err) {
+           reject(err);
+       }
+    });
+}
 
 // Get Repo
 // Get changed files
@@ -34,7 +52,6 @@ function processFiles(){
 // create signature
 // get commit message
 // fetch remotes
-//return repo.createCommit('HEAD', signature, signature,  'Test automated commits', oid, [parentCommit]);
 
 function isChanged (fileObj) {
     if(fileObj.isNew() || fileObj.isModified() || fileObj.isTypechange() || fileObj.isRenamed()){
@@ -117,5 +134,22 @@ function guidedCommit () {
                 })
             });
         });
+    });
+}
+
+function getCommitMessage () {
+    return new Promise(function (resolve, reject) {
+        try {
+            const readline = require('readline');
+            const rl = readline.createInterface({
+                input: process.stdin, output: process.stdout
+            });
+            rl.question('Commit message: ', (answer) => {
+                rl.close();
+                resolve(answer)
+            });
+        } catch (err) {
+            reject(err)
+        }
     });
 }
