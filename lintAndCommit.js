@@ -7,6 +7,8 @@ var repositoryObj;
 var changedFiles;
 let branchName;
 let fetchStatus;
+let logSetting = false;
+
 // This code shows working directory changes similar to git status
 let commitPromise = getCommitMessage();
 
@@ -22,7 +24,7 @@ nodegit.Repository.open(directory).then(function (repo) {
         commitPromise
     ])
     .then(function (results) {
-        console.log('Process files and commit promise resolved');
+        log('Process files and commit promise resolved');
         // commit changes, last three arguments are OID, commit message, and parent commit
         let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[1], results[0], [parentCommit]);
         Promise.all([
@@ -30,16 +32,16 @@ nodegit.Repository.open(directory).then(function (repo) {
             branchName,
             fetchStatus
         ]).then((results)=>{
-            console.log('fetch complete, branch: ' + results[1]);
+            log('fetch complete, branch: ' + results[1]);
             // merge remote branch in
             return repositoryObj.mergeBranches(results[1], 'origin/' + results[1], signature);
         }).catch((err) => {
-            console.log('Error in promise block commit, branchname, fetch');
-            console.log(err);
+            log('Error in promise block commit, branchname, fetch');
+            log(err);
         });
     })
     .catch(function (err) {
-        console.log('Error in promise block, processFules and commitPromise\n' + err)
+        log('Error in promise block, processFules and commitPromise\n' + err)
     });
 });
 
@@ -66,7 +68,7 @@ function fetchBranches () {
                    }
                }
                },(success) => {
-                   console.log('fetchBranches result: ' + success);
+                   log('fetchBranches result: ' + success);
                    resolve(true);
            });
        } catch (err) {
@@ -120,7 +122,7 @@ function genChangedFiles(repo) {
                     if (isChanged(file)) {
                         files.push(directory + '/' + file.path());
                         itemsProcessed++;
-                        //console.log(itemsProcessed + ' files = ' + files.join(','));
+                        //log(itemsProcessed + ' files = ' + files.join(','));
                     }
                     if (itemsProcessed === statuses.length) {
                         changedFiles = files;
@@ -198,18 +200,27 @@ function guidedCommit () {
 
 function getCommitMessage () {
     return new Promise(function (resolve, reject) {
-        /*try {
-            const readline = require('readline');
-            const rl = readline.createInterface({
-                input: process.stdin, output: process.stdout
-            });
-            rl.question('Commit message: ', (answer) => {
-                rl.close();
-                resolve(answer)
-            });
+        try {
+            if(!logSetting) {
+                const readline = require('readline');
+                const rl = readline.createInterface({
+                    input: process.stdin, output: process.stdout
+                });
+                rl.question('Commit message: ', (answer) => {
+                    rl.close();
+                    resolve(answer)
+                });
+            } else {
+                resolve('Logging on, test value');
+            }
         } catch (err) {
             reject('Error getCommitMessage: ' + err)
-        }*/
-        resolve('fake commit');
+        }
     });
+}
+
+function log (message) {
+    if(logSetting) {
+        console.log(message);
+    }
 }
