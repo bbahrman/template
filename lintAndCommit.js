@@ -84,17 +84,6 @@ function fetchBranches () {
     });
 }
 
-// Return OID for commit and set repository obj on global scale
-function processFiles(){
-    return new Promise((resolve, reject) => {
-        try {
-
-        } catch (err) {
-            reject('Error processFiles: ' + err);
-        }
-    });
-}
-
 function createSignature () {
     return new Promise((resolve, reject) => {
        try {
