@@ -1,10 +1,10 @@
-var nodegit = require('nodegit');
-var fs = require('fs');
-var directory = '/Users/benbahrman/Code_Review';
-var signature;
-var parentCommit;
-var repositoryObj;
-var changedFiles;
+let nodegit = require('nodegit');
+let fs = require('fs');
+let directory = '/Users/benbahrman/Code_Review';
+let signature;
+let parentCommit;
+let repositoryObj;
+let changedFiles;
 let branchName;
 let fetchStatus;
 let logSetting = false;
@@ -12,9 +12,9 @@ let logSetting = false;
 // This code shows working directory changes similar to git status
 let commitPromise = getCommitMessage();
 
-nodegit.Repository.open(directory).then(function (repo) {
+nodegit.Repository.open(directory).then((repo) => {
     repositoryObj = repo;
-    repositoryObj.getHeadCommit().then(function (headCommit) {
+    repositoryObj.getHeadCommit().then((headCommit) => {
         parentCommit = headCommit;
         branchName = getBranchName();
         fetchStatus = fetchBranches();
@@ -23,7 +23,7 @@ nodegit.Repository.open(directory).then(function (repo) {
         processFiles(),
         commitPromise
     ])
-    .then(function (results) {
+    .then((results) => {
         log('Process files and commit promise resolved');
         // commit changes, last three arguments are OID, commit message, and parent commit
         let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[1], results[0], [parentCommit]);
@@ -31,7 +31,7 @@ nodegit.Repository.open(directory).then(function (repo) {
             commit,
             branchName,
             fetchStatus
-        ]).then((results)=>{
+        ]).then((results) => {
             log('fetch complete, branch: ' + results[1]);
             // merge remote branch in
             return repositoryObj.mergeBranches(results[1], 'origin/' + results[1], signature);
@@ -40,7 +40,7 @@ nodegit.Repository.open(directory).then(function (repo) {
             log(err);
         });
     })
-    .catch(function (err) {
+    .catch((err) => {
         log('Error in promise block, processFules and commitPromise\n' + err)
     });
 });
@@ -48,7 +48,7 @@ nodegit.Repository.open(directory).then(function (repo) {
 function getBranchName () {
     return new Promise((resolve, reject) => {
         try {
-            repositoryObj.getBranch('HEAD').then(function (reference) {
+            repositoryObj.getBranch('HEAD').then((reference) => {
                 resolve(reference.name().replace('refs/heads/', ''))
             });
         } catch (err) {
@@ -62,8 +62,8 @@ function fetchBranches () {
        try {
            repositoryObj.fetch("origin",{
                callbacks: {
-                   certificateCheck: function() { return 1; },
-                   credentials: function(url, userName) {
+                   certificateCheck: () => { return 1; },
+                   credentials: (url, userName) => {
                        return nodegit.Cred.sshKeyFromAgent(userName);
                    }
                }
@@ -79,9 +79,9 @@ function fetchBranches () {
 
 // Return OID for commit and set repository obj on global scale
 function processFiles(){
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
         try {
-            genChangedFiles(repositoryObj).then(lintFilesSimple).then(guidedCommit).then(function (oid) {
+            genChangedFiles(repositoryObj).then(lintFilesSimple).then(guidedCommit).then((oid) => {
                 resolve(oid);
             });
             signature = nodegit.Signature.default(repositoryObj);
@@ -92,7 +92,7 @@ function processFiles(){
 }
 
 function createSignature () {
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
        try {
            if(signature){resolve (signature)}
            else (signature.now())
@@ -112,13 +112,13 @@ function isChanged (fileObj) {
 
 
 function genChangedFiles(repo) {
-    return new Promise(function (genChangedFiles_resolve, genChangedFiles_reject) {
+    return new Promise((genChangedFiles_resolve, genChangedFiles_reject) => {
         try {
-            repo.getStatus().then(function (statuses) {
-                var files = [];
-                var itemsProcessed = 0;
+            repo.getStatus().then((statuses) => {
+                let files = [];
+                let itemsProcessed = 0;
 
-                statuses.forEach(function (file) {
+                statuses.forEach((file) => {
                     if (isChanged(file)) {
                         files.push(directory + '/' + file.path());
                         itemsProcessed++;
@@ -137,19 +137,19 @@ function genChangedFiles(repo) {
 }
 
 function lintFilesSimple () {
-    return new Promise(function (lintFiles_resolve, lintFiles_reject) {
+    return new Promise((lintFiles_resolve, lintFiles_reject) => {
         try {
-            var CLIEngine = require("eslint").CLIEngine;
+            let CLIEngine = require("eslint").CLIEngine;
 
-            var cli = new CLIEngine({
+            let cli = new CLIEngine({
                 useEslintrc: true, fix: true
             });
             // lint myfile.js and all files in lib/
-            var report = cli.executeOnFiles(changedFiles);
-            var filesProcessed = 0;
-            report.results.forEach(function (fileResponse) {
+            let report = cli.executeOnFiles(changedFiles);
+            let filesProcessed = 0;
+            report.results.forEach((fileResponse) => {
                 if (!isEmptyOrNull(fileResponse.output)) {
-                    fs.writeFile(fileResponse.filePath, fileResponse.output, function (err) {
+                    fs.writeFile(fileResponse.filePath, fileResponse.output, (err) => {
                         if (err) {
                         }
                         filesProcessed++;
@@ -167,25 +167,25 @@ function lintFilesSimple () {
     });
 }
 
-function isEmptyOrNull (testVar) {
-    if (!testVar || testVar == undefined || testVar === 'undefined' || testVar === '' || testVar === null) {
+function isEmptyOrNull (testlet) {
+    if (!testlet || testlet == undefined || testlet === 'undefined' || testlet === '' || testlet === null) {
         return true;
     }
     return false;
 }
 
 function guidedCommit () {
-    return new Promise(function (guidedCommit_resolve, guidedCommit_reject) {
+    return new Promise((guidedCommit_resolve, guidedCommit_reject) => {
         try {
-            repositoryObj.refreshIndex().then(function (index) {
-                var filesAdded = 0;
-                changedFiles.forEach(function (file) {
-                    index.addByPath(file.replace(directory + '/', '')).then(function (result) {
+            repositoryObj.refreshIndex().then((index) => {
+                let filesAdded = 0;
+                changedFiles.forEach((file) => {
+                    index.addByPath(file.replace(directory + '/', '')).then((result) => {
                         filesAdded++;
                         if (filesAdded === changedFiles.length) {
-                            index.write().then(function () {
+                            index.write().then(() => {
                                 return index.writeTree();
-                            }).then(function (oid) {
+                            }).then((oid) => {
                                 guidedCommit_resolve(oid)
                             });
                         }
@@ -199,7 +199,7 @@ function guidedCommit () {
 }
 
 function getCommitMessage () {
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
         try {
             if(!logSetting) {
                 const readline = require('readline');
