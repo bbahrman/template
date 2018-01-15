@@ -2,31 +2,29 @@ let nodegit = require('nodegit');
 let fs = require('fs');
 let directory = '/Users/benbahrman/Code_Review';
 let signature;
-let parentCommit;
 let repositoryObj;
 let changedFiles;
 let branchName;
 let fetchStatus;
 let logSetting = false;
 
-// This code shows working directory changes similar to git status
-let commitPromise = getCommitMessage();
+let commitMessagePromise = getCommitMessage();
 
 nodegit.Repository.open(directory).then((repo) => {
     repositoryObj = repo;
-    repositoryObj.getHeadCommit().then((headCommit) => {
-        parentCommit = headCommit;
-        branchName = getBranchName();
-        fetchStatus = fetchBranches();
-    });
+    branchName = getBranchName();
+    fetchStatus = fetchBranches();
+    let parentCommit = repositoryObj.getHeadCommit();
     Promise.all([
         processFiles(),
-        commitPromise
+        commitMessagePromise,
+        parentCommit,
+        branchName
     ])
     .then((results) => {
         log('Process files and commit promise resolved');
         // commit changes, last three arguments are OID, commit message, and parent commit
-        let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[1], results[0], [parentCommit]);
+        let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[3] + ' - ' + results[1], results[0], [results[2]]);
         Promise.all([
             commit,
             branchName,
@@ -41,7 +39,7 @@ nodegit.Repository.open(directory).then((repo) => {
         });
     })
     .catch((err) => {
-        log('Error in promise block, processFules and commitPromise\n' + err)
+        log('Error in promise block, processFules and commitMessagePromise\n' + err)
     });
 });
 
