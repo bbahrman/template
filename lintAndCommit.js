@@ -4,42 +4,51 @@ let directory = '/Users/benbahrman/Code_Review';
 let signature;
 let repositoryObj;
 let changedFiles;
+let logSetting = true;
 let branchName;
-let fetchStatus;
-let logSetting = false;
-
-let commitMessagePromise = getCommitMessage();
 
 nodegit.Repository.open(directory).then((repo) => {
     repositoryObj = repo;
-    branchName = getBranchName();
-    fetchStatus = fetchBranches();
-    let parentCommit = repositoryObj.getHeadCommit();
-    Promise.all([
-        processFiles(),
-        commitMessagePromise,
-        parentCommit,
-        branchName
-    ])
-    .then((results) => {
-        log('Process files and commit promise resolved');
-        // commit changes, last three arguments are OID, commit message, and parent commit
-        let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[3] + ' - ' + results[1], results[0], [results[2]]);
-        Promise.all([
-            commit,
-            branchName,
-            fetchStatus
-        ]).then((results) => {
-            log('fetch complete, branch: ' + results[1]);
-            // merge remote branch in
-            return repositoryObj.mergeBranches(results[1], 'origin/' + results[1], signature);
-        }).catch((err) => {
-            log('Error in promise block commit, branchname, fetch');
-            log(err);
-        });
-    })
-    .catch((err) => {
-        log('Error in promise block, processFules and commitMessagePromise\n' + err)
+    let changedFileCount = genChangedFiles(repositoryObj);
+    changedFileCount.then((count) => {
+        if (count > 0) {
+            let commitMessagePromise = getCommitMessage();
+            let commitOId = lintFilesSimple()
+            .then((lintResults) => {
+                return guidedCommit();
+            });
+            signature = nodegit.Signature.default(repositoryObj);
+            let branchNamePromise = getBranchName();
+            branchNamePromise.then((name) => {
+               branchName = name;
+            });
+            let fetchStatusPromise = fetchBranches();
+            let parentCommit = repositoryObj.getHeadCommit();
+            Promise.all([
+                commitOId,
+                commitMessagePromise,
+                parentCommit,
+                branchNamePromise,
+                fetchStatusPromise
+            ])
+            .then((results) => {
+                log('Process files and commit promise resolved');
+                // commit changes, last three arguments are OID, commit message, and parent commit
+                let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[3] + ' - ' + results[1], results[0], [results[2]]);
+                commit.then(() => {
+                    // merge remote branch in
+                    return repositoryObj.mergeBranches(branchName, 'origin/' + branchName, signature);
+                }).catch((err) => {
+                    log('Error in promise block commit, branchname, fetch');
+                    log(err);
+                });
+            })
+            .catch((err) => {
+                log('Error in promise block, processRules and commitMessagePromise\n' + err)
+            });
+        } else {
+            console.log('No changes to commit')
+        }
     });
 });
 
@@ -79,10 +88,7 @@ function fetchBranches () {
 function processFiles(){
     return new Promise((resolve, reject) => {
         try {
-            genChangedFiles(repositoryObj).then(lintFilesSimple).then(guidedCommit).then((oid) => {
-                resolve(oid);
-            });
-            signature = nodegit.Signature.default(repositoryObj);
+
         } catch (err) {
             reject('Error processFiles: ' + err);
         }
@@ -113,20 +119,24 @@ function genChangedFiles(repo) {
     return new Promise((genChangedFiles_resolve, genChangedFiles_reject) => {
         try {
             repo.getStatus().then((statuses) => {
-                let files = [];
-                let itemsProcessed = 0;
+                if(statuses.length > 0) {
+                    let files = [];
+                    let itemsProcessed = 0;
 
-                statuses.forEach((file) => {
-                    if (isChanged(file)) {
-                        files.push(directory + '/' + file.path());
-                        itemsProcessed++;
-                        //log(itemsProcessed + ' files = ' + files.join(','));
-                    }
-                    if (itemsProcessed === statuses.length) {
-                        changedFiles = files;
-                        genChangedFiles_resolve();
-                    }
-                });
+                    statuses.forEach((file) => {
+                        if (isChanged(file)) {
+                            files.push(directory + '/' + file.path());
+                            itemsProcessed++;
+                            //log(itemsProcessed + ' files = ' + files.join(','));
+                        }
+                        if (itemsProcessed === statuses.length) {
+                            changedFiles = files;
+                            genChangedFiles_resolve(itemsProcessed);
+                        }
+                    });
+                } else {
+                    genChangedFiles_resolve(0);
+                }
             });
         } catch (err) {
             genChangedFiles_reject('Error genChangedFiles: ' + err);
