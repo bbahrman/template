@@ -4,9 +4,10 @@ let directory = '/Users/benbahrman/Code_Review';
 let signature;
 let repositoryObj;
 let changedFiles;
-let logSetting = true;
+let logSetting = false;
 let branchName;
 let lintResultsGlobal;
+let formattedResults = [];
 
 nodegit.Repository.open(directory).then((repo) => {
     repositoryObj = repo;
@@ -62,9 +63,12 @@ nodegit.Repository.open(directory).then((repo) => {
                 });
 
                 pushPromise.then(()=>{
-                    console.log('Push complete');
-                    console.log(JSON.stringify(lintResultsGlobal));
-                })
+                    console.log('\n');
+                    formattedResults.forEach((message) => {
+                        console.log('Processing complete\n');
+                        console.log(message);
+                    });
+                });
 
             })
             .catch((err) => {
@@ -167,18 +171,14 @@ function lintFilesSimple () {
             // lint myfile.js and all files in lib/
             let report = cli.executeOnFiles(changedFiles);
             lintResultsGlobal = report;
-            log('Linting complete, set global report');
             report.results.forEach((fileResponse, index, map) => {
-                log('In forEach report.results, index = ' + index);
+                formattedResults.push(responseFormat(fileResponse));
                 if((report.results.length - 1) === index) {
-                    log('last file');
                     let lastFile = writeFile(fileResponse.filePath, fileResponse.output);
                     lastFile.then(()=>{
-                        log('last file written');
                         lintFiles_resolve();
                     });
                 } else {
-                    log('not last file');
                     writeFile(fileResponse.filePath, fileResponse.output);
                 }
             });
@@ -249,7 +249,7 @@ function log (message) {
 function writeFile (path, content) {
     return new Promise((resolve, reject) => {
         if (!isEmptyOrNull(content)) {
-            fs.writeFile(path, output, (err) => {
+            fs.writeFile(path, content, (err) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -262,8 +262,24 @@ function writeFile (path, content) {
     });
 }
 
-
 /*
 
  {"results":[{"filePath":"/Users/benbahrman/Code_Review/test.js","messages":[],"errorCount":0,"warningCount":0,"fixableErrorCount":0,"fixableWarningCount":0}],"errorCount":0,"warningCount":0,"fixableErrorCount":0,"fixableWarningCount":0}
+ {"ruleId":null,"fatal":true,"severity":2,"source":"    jjj_title, 'C   r ' +","message":"Parsing error: Unexpected token jjj_title","line":202,"column":5}
  */
+
+function responseFormat (fileResult) {
+    let value = "";
+    value += fileResult.filePath.replace(directory + '/','');
+    value += '\n';
+    value += 'Errors: ' + fileResult.errorCount + ' Warnings: ' + fileResult.warningCount;
+    value += '\n';
+    if(fileResult.messages.length > 0) {
+        for(let i = 0; i < fileResult.messages.length; i++) {
+            let message = fileResult.messages[i];
+            value += message.line + ':' + message.column + ' - ' + message.message + '\n';
+        }
+    }
+    value += '\n';
+    return value;
+}
