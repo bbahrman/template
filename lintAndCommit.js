@@ -35,13 +35,35 @@ nodegit.Repository.open(directory).then((repo) => {
                 log('Process files and commit promise resolved');
                 // commit changes, last three arguments are OID, commit message, and parent commit
                 let commit = repositoryObj.createCommit('HEAD', signature, signature,  results[3] + ' - ' + results[1], results[0], [results[2]]);
-                commit.then(() => {
+                let mergePromise = commit.then(() => {
                     // merge remote branch in
                     return repositoryObj.mergeBranches(branchName, 'origin/' + branchName, signature);
                 }).catch((err) => {
                     log('Error in promise block commit, branchname, fetch');
                     log(err);
                 });
+                let masterMergePromise = mergePromise.then(()=>{
+                    return repositoryObj.mergeBranches(branchName, 'origin/master', signature);
+                });
+
+                let remotePromise = masterMergePromise.then(()=>{
+                    return repositoryObj.getRemote('origin');
+                });
+
+                let pushPromise = remotePromise.then((remote) =>{
+                    return remote.push(["refs/heads/master:refs/heads/master"],{
+                        callbacks: {
+                            credentials: (url, userName) => {
+                                return nodegit.Cred.sshKeyFromAgent(userName);
+                            }
+                        }
+                    });
+                });
+
+                pushPromise.then(()=>{
+                    console.log('Push complete')
+                })
+
             })
             .catch((err) => {
                 log('Error in promise block, processRules and commitMessagePromise\n' + err)
@@ -52,6 +74,30 @@ nodegit.Repository.open(directory).then((repo) => {
     });
 });
 
+/*
+ return remote.push(
+ ["refs/heads/master:refs/heads/master"],
+ {
+ callbacks: {
+ credentials: function(url, userName) {
+ return nodegit.Cred.sshKeyFromAgent(userName);
+ }
+ }
+ }
+ );
+ });
+ }).done(function() {
+ console.log("Done!");
+ });
+*
+ */
+/*
+ mergePromise.then(()=>{
+ repositoryObj.getRemote('origin').then(function(remote) {
+
+ });
+ });
+*/
 function getBranchName () {
     return new Promise((resolve, reject) => {
         try {
