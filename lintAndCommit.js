@@ -63,9 +63,8 @@ nodegit.Repository.open(directory).then((repo) => {
                 });
 
                 pushPromise.then(()=>{
-                    console.log('\n');
+                    console.log('\nProcessing complete');
                     formattedResults.forEach((message) => {
-                        console.log('Processing complete\n');
                         console.log(message);
                     });
                 });
@@ -261,12 +260,6 @@ function writeFile (path, content) {
         }
     });
 }
-
-/*
-
- {"results":[{"filePath":"/Users/benbahrman/Code_Review/test.js","messages":[],"errorCount":0,"warningCount":0,"fixableErrorCount":0,"fixableWarningCount":0}],"errorCount":0,"warningCount":0,"fixableErrorCount":0,"fixableWarningCount":0}
- {"ruleId":null,"fatal":true,"severity":2,"source":"    jjj_title, 'C   r ' +","message":"Parsing error: Unexpected token jjj_title","line":202,"column":5}
- */
 
 function responseFormat (fileResult) {
     let value = "";
