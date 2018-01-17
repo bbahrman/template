@@ -4,8 +4,9 @@ let directory = '/Users/benbahrman/Code_Review';
 let signature;
 let repositoryObj;
 let changedFiles;
-let logSetting = false;
+let logSetting = true;
 let branchName;
+let lintResultsGlobal;
 
 nodegit.Repository.open(directory).then((repo) => {
     repositoryObj = repo;
@@ -14,7 +15,7 @@ nodegit.Repository.open(directory).then((repo) => {
         if (count > 0) {
             let commitMessagePromise = getCommitMessage();
             let commitOId = lintFilesSimple()
-            .then((lintResults) => {
+            .then(() => {
                 return guidedCommit();
             });
             signature = nodegit.Signature.default(repositoryObj);
@@ -61,7 +62,8 @@ nodegit.Repository.open(directory).then((repo) => {
                 });
 
                 pushPromise.then(()=>{
-                    console.log('Push complete')
+                    console.log('Push complete');
+                    console.log(JSON.stringify(lintResultsGlobal));
                 })
 
             })
@@ -97,7 +99,6 @@ function fetchBranches () {
                    }
                }
                },(success) => {
-                   log('fetchBranches result: ' + success);
                    resolve(true);
            });
        } catch (err) {
@@ -165,19 +166,20 @@ function lintFilesSimple () {
             });
             // lint myfile.js and all files in lib/
             let report = cli.executeOnFiles(changedFiles);
-            let filesProcessed = 0;
-            report.results.forEach((fileResponse) => {
-                if (!isEmptyOrNull(fileResponse.output)) {
-                    fs.writeFile(fileResponse.filePath, fileResponse.output, (err) => {
-                        if (err) {
-                        }
-                        filesProcessed++;
-                        if (filesProcessed === report.results.length) {
-                            lintFiles_resolve();
-                        }
+            lintResultsGlobal = report;
+            log('Linting complete, set global report');
+            report.results.forEach((fileResponse, index, map) => {
+                log('In forEach report.results, index = ' + index);
+                if((report.results.length - 1) === index) {
+                    log('last file');
+                    let lastFile = writeFile(fileResponse.filePath, fileResponse.output);
+                    lastFile.then(()=>{
+                        log('last file written');
+                        lintFiles_resolve();
                     });
                 } else {
-                    lintFiles_resolve();
+                    log('not last file');
+                    writeFile(fileResponse.filePath, fileResponse.output);
                 }
             });
         } catch (err) {
@@ -243,3 +245,25 @@ function log (message) {
         console.log(message);
     }
 }
+
+function writeFile (path, content) {
+    return new Promise((resolve, reject) => {
+        if (!isEmptyOrNull(content)) {
+            fs.writeFile(path, output, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(true);
+                }
+            });
+        } else {
+            resolve(true);
+        }
+    });
+}
+
+
+/*
+
+ {"results":[{"filePath":"/Users/benbahrman/Code_Review/test.js","messages":[],"errorCount":0,"warningCount":0,"fixableErrorCount":0,"fixableWarningCount":0}],"errorCount":0,"warningCount":0,"fixableErrorCount":0,"fixableWarningCount":0}
+ */
