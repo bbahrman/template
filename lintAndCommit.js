@@ -4,7 +4,7 @@ let directory = '/Users/benbahrman/Code_Review';
 let signature;
 let repositoryObj;
 let changedFiles;
-let logSetting = true;
+let logSetting = false;
 let branchName;
 
 nodegit.Repository.open(directory).then((repo) => {
@@ -74,30 +74,6 @@ nodegit.Repository.open(directory).then((repo) => {
     });
 });
 
-/*
- return remote.push(
- ["refs/heads/master:refs/heads/master"],
- {
- callbacks: {
- credentials: function(url, userName) {
- return nodegit.Cred.sshKeyFromAgent(userName);
- }
- }
- }
- );
- });
- }).done(function() {
- console.log("Done!");
- });
-*
- */
-/*
- mergePromise.then(()=>{
- repositoryObj.getRemote('origin').then(function(remote) {
-
- });
- });
-*/
 function getBranchName () {
     return new Promise((resolve, reject) => {
         try {
